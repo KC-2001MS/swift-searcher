@@ -182,7 +182,7 @@ struct ShardIndex: Sendable {
 
         for term in query.terms {
             // 元の語と同義語のうち、文書ごとに最も点数の高いものを使う（同義語は 0.7 倍）
-            let variants = [(term, 1.0)] + (query.synonyms[term] ?? []).map { ($0, 0.7) }
+            let variants: [(String, Double)] = [(term, 1.0)] + (query.synonyms[term] ?? []).map { ($0, 0.7) }
             var best: [Int: [Int: (score: Double, title: Bool, anchor: Bool)]] = [:]
             for (variant, factor) in variants {
                 let idf = corpus.idf(variant)
@@ -245,9 +245,10 @@ struct ShardIndex: Sendable {
                     now: now
                 )
                 // 仮の点数: 関連度を主役に、全語を含むものとフレーズ一致を優遇する
-                let preliminary = accumulator.bm25 * features.coverage * features.coverage
-                    * (1 + 0.5 * features.phraseInTitle + 0.2 * features.phraseInBody)
-                    * (1 + 0.5 * features.pageRank)
+                let coverageBoost: Double = features.coverage * features.coverage
+                let phraseBoost: Double = 1 + 0.5 * features.phraseInTitle + 0.2 * features.phraseInBody
+                let rankBoost: Double = 1 + 0.5 * features.pageRank
+                let preliminary: Double = accumulator.bm25 * coverageBoost * phraseBoost * rankBoost
                 candidates.append(SearchCandidate(
                     pageID: document.pageID,
                     url: document.url,

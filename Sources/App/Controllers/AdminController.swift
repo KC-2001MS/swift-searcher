@@ -76,7 +76,7 @@ struct AdminController: RouteCollection {
         guard !hosts.isEmpty else { throw Abort(.notFound, reason: "まだ巡回していないホストです") }
         for record in hosts {
             record.blocked = blocked
-            // robots.txt のキャッシュの期限を切って、各ワーカーがすぐに読み直すようにする
+            // robots.txt の期限を切って取得し直させる（各ワーカーのメモリのキャッシュは最大5分で切れる）
             record.robotsFetchedAt = nil
             try await record.save(on: req.db)
         }

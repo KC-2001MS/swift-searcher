@@ -54,6 +54,8 @@ struct RankerTrainer: Sendable {
         let pairs = try await loadPairs(since: since)
         let base = try await currentModel()
         let before = Self.accuracy(base, pairs)
+        // クリック率の集計は、学習できるだけのデータが無くても行う
+        try await updateClickCounts(since: since)
         guard pairs.count >= minimumPairs else {
             logger.info("学習用のペアが足りません（\(pairs.count) / \(minimumPairs)）")
             return Result(pairs: pairs.count, model: nil, accuracyBefore: before, accuracyAfter: before)
@@ -68,7 +70,6 @@ struct RankerTrainer: Sendable {
             model.version = latest + 1
             try await RankingModelRecord(version: model.version, model: model, trainedPairs: pairs.count).create(on: database)
         }
-        try await updateClickCounts(since: since)
         return Result(pairs: pairs.count, model: model, accuracyBefore: before, accuracyAfter: after)
     }
 

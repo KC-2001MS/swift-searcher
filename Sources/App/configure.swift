@@ -113,7 +113,7 @@ public func configure(_ app: Application) async throws {
             settings: config.search,
             candidatesPerShard: config.index.candidatesPerShard,
             models: app.rankingModels,
-            cache: (Environment.get("REDIS_URL") != nil && app.environment != .testing) ? RedisQueryCache(redis: redis) : NoQueryCache(),
+            cache: (Environment.get("REDIS_URL") != nil && app.environment != .testing) ? RedisQueryCache(redis: redis) as any QueryCache : NoQueryCache(),
             synonyms: SynonymDictionary(groups: synonymGroups),
             logger: app.logger
         )

@@ -73,7 +73,7 @@ struct RecrawlScheduler: Sendable {
         let threshold = now.addingTimeInterval(-purgeAfter)
         let stale = try await Page.query(on: database)
             .filter(\.$status == .gone)
-            .filter(\.$updatedAt < threshold)
+            .filter(\.$changedAt < threshold)
             .limit(batchSize)
             .all()
         for page in stale {

@@ -398,8 +398,12 @@ struct CrawlWorker: Sendable {
 
     /// ページが無くなったことを記録する（インデックスシャードは次の取り込みで検索結果から外す）
     private func markGone(_ page: Page) async throws {
-        if page.status != .gone, !page.contentHash.isEmpty {
-            try await duplicates.forget(url: page.url, contentHash: page.contentHash, simhash: UInt64(bitPattern: page.simhash))
+        if page.status != .gone {
+            if !page.contentHash.isEmpty {
+                try await duplicates.forget(url: page.url, contentHash: page.contentHash, simhash: UInt64(bitPattern: page.simhash))
+            }
+            // 無くなった日時として記録する（長い間無くなったままなら、スケジューラーが削除する）
+            page.changedAt = Date()
         }
         page.status = .gone
         page.nextCrawlAt = Date().addingTimeInterval(settings.revisitMax.timeInterval)

@@ -12,11 +12,11 @@ let package = Package(
         // 🗄 An ORM for SQL and NoSQL databases.
         .package(url: "https://github.com/vapor/fluent.git", from: "4.13.0"),
         // 🐘 Fluent driver for Postgres（ページ・リンク・ホスト・検索ログの保存先）
-        .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.11.0"),
+        .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.10.0"),
         // 🪶 Fluent driver for SQLite（テストでのみ使用）
         .package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.9.0"),
         // 🟥 Redis（分散フロンティア・ブルームフィルター・重複検出・検索結果のキャッシュ）
-        .package(url: "https://github.com/vapor/redis.git", from: "4.11.0"),
+        .package(url: "https://github.com/vapor/redis.git", from: "4.10.0"),
         // 🔵 Non-blocking, event-driven networking for Swift. Used for custom executors
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.100.0"),
         // 🍲 HTML / XML パーサー（クロールしたページの解析に使用）

@@ -72,12 +72,12 @@ struct RedisFrontier: Frontier {
 
     /// ブルームフィルターで追加済みか確かめてから、ホストの待ち行列に追加する
     static let enqueueScript = """
+    if redis.call('ZCARD', KEYS[3]) >= tonumber(ARGV[5]) then return 0 end
     local isNew = 0
     for i = 6, #ARGV do
       if redis.call('SETBIT', KEYS[1], ARGV[i], 1) == 0 then isNew = 1 end
     end
     if ARGV[1] == '0' and isNew == 0 then return 0 end
-    if redis.call('ZCARD', KEYS[3]) >= tonumber(ARGV[5]) then return 0 end
     if redis.call('ZADD', KEYS[3], 'NX', ARGV[3], ARGV[2]) == 1 then
       redis.call('INCR', KEYS[4])
     end

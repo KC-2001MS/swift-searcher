@@ -95,11 +95,12 @@ actor InMemoryFrontier: Frontier {
     }
 
     func enqueue(_ entry: FrontierEntry, origin: String, force: Bool) -> Bool {
+        var queue = queues[origin, default: []]
+        // 待ち行列が一杯のときは「追加済み」にしない（後で空いたら追加できるように）
+        guard queue.count < maxQueuePerHost else { return false }
         if !force {
             guard seen.insert(entry.url).inserted else { return false }
         }
-        var queue = queues[origin, default: []]
-        guard queue.count < maxQueuePerHost else { return false }
         if queue.contains(where: { $0.url == entry.url }) { return false }
         queue.append(entry)
         queues[origin] = queue

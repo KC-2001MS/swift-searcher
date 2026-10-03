@@ -18,6 +18,8 @@ actor RobotsService {
     let settings: CrawlerSettings
     let logger: Logger
     private var cache: [String: (robots: RobotsTxt, expiresAt: Date)] = [:]
+    /// メモリのキャッシュの最大の有効期間。管理 API でホストを止めたとき、この時間以内に全ワーカーへ反映される
+    private let memoryTTL: TimeInterval = 5 * 60
     /// メモリのキャッシュの上限（超えたら全部捨てる。単純だが十分）
     private let maxCacheEntries = 50_000
 
@@ -97,6 +99,6 @@ actor RobotsService {
 
     private func remember(_ origin: String, _ robots: RobotsTxt, until expiresAt: Date) {
         if cache.count >= maxCacheEntries { cache.removeAll(keepingCapacity: true) }
-        cache[origin] = (robots, expiresAt)
+        cache[origin] = (robots, min(expiresAt, Date().addingTimeInterval(memoryTTL)))
     }
 }
