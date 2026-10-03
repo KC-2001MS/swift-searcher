@@ -1,66 +1,121 @@
-# Docker Compose file for Vapor
+# Docker Compose file for Swift Searcher
 #
-# Install Docker on your system to run and test
-# your Vapor app in a production-like environment.
+# 役割ごとにコンテナを分けて、大規模な検索エンジンと同じ構成を1台の上で再現する。
 #
-# Note: This file is intended for testing and does not
-# implement best practices for a production deployment.
+#   ┌──────────┐   ┌────────────┐   ┌───────────┐
+#   │ scheduler │──▶│   Redis     │◀──│ worker ×2 │──▶ インターネット
+#   └──────────┘   │（フロンティア）│   └─────┬─────┘
+#                  └────────────┘         │ 保存
+#   ┌──────────┐   ┌────────────┐         ▼
+#   │   api    │──▶│ shard-0 / 1 │◀── Postgres（ページ・リンク・ホスト・検索ログ）
+#   └──────────┘   └────────────┘
 #
-# Learn more: https://docs.docker.com/compose/reference/
+#   Build images: docker compose build
+#     Migrations: docker compose run --rm migrate
+#      Start all: docker compose up api shard-0 shard-1 worker scheduler
+#     Batch jobs: docker compose run --rm link-analysis / docker compose run --rm train-ranker
+#       Stop all: docker compose down (add -v to wipe db)
 #
-#   Build images: docker-compose build
-#      Start app: docker-compose up app
-# Start database: docker-compose up db
-# Run migrations: docker-compose run migrate
-#       Stop all: docker-compose down (add -v to wipe db)
-#
-version: '3.7'
-
-volumes:
-  db_data:
+# 注意: worker を起動すると、SEARCHER_SEEDS のサイトを実際に巡回し始める。
 
 x-shared_environment: &shared_environment
-  LOG_LEVEL: ${LOG_LEVEL:-debug}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
   DATABASE_HOST: db
   DATABASE_NAME: vapor_database
   DATABASE_USERNAME: vapor_username
   DATABASE_PASSWORD: vapor_password
-  
+  REDIS_URL: redis://redis:6379
+  INDEX_SHARD_COUNT: 2
+  SEARCHER_SEEDS: ${SEARCHER_SEEDS:-https://iroiro.dev/}
+  SEARCHER_ADMIN_TOKEN: ${SEARCHER_ADMIN_TOKEN:-}
+  CRAWLER_SCOPE: ${CRAWLER_SCOPE:-seed-hosts}
+
+x-app: &app
+  image: swift-searcher:latest
+  build:
+    context: .
+  depends_on:
+    - db
+    - redis
+
 services:
-  app:
-    image: swift-searcher:latest
-    build:
-      context: .
+  # 検索 API（ブローカー）。各シャードに問い合わせて結果をまとめる
+  api:
+    <<: *app
     environment:
       <<: *shared_environment
-    depends_on:
-      - db
+      APP_ROLE: api
+      # ; でシャードを、, で同じシャードのレプリカを区切る
+      SEARCH_SHARDS: http://shard-0:8080;http://shard-1:8080
     ports:
       - '8080:8080'
-    # user: '0' # uncomment to run as root for testing purposes even though Dockerfile defines 'vapor' user.
-    command: ["serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
-  migrate:
-    image: swift-searcher:latest
-    build:
-      context: .
+
+  # インデックスシャード（担当するページの転置インデックスをメモリに持つ）
+  shard-0:
+    <<: *app
     environment:
       <<: *shared_environment
-    depends_on:
-      - db
+      APP_ROLE: shard
+      INDEX_SHARD_ID: 0
+
+  shard-1:
+    <<: *app
+    environment:
+      <<: *shared_environment
+      APP_ROLE: shard
+      INDEX_SHARD_ID: 1
+
+  # クロールワーカー（台数を増やすと巡回が速くなる）
+  worker:
+    <<: *app
+    environment:
+      <<: *shared_environment
+      APP_ROLE: worker
+      CRAWLER_WORKER_CONCURRENCY: 16
+    deploy:
+      replicas: 2
+
+  # 再訪問スケジューラー（全体で1台だけ動かす）
+  scheduler:
+    <<: *app
+    environment:
+      <<: *shared_environment
+      APP_ROLE: scheduler
+
+  migrate:
+    <<: *app
+    environment:
+      <<: *shared_environment
     command: ["migrate", "--yes"]
     deploy:
       replicas: 0
+
   revert:
-    image: swift-searcher:latest
-    build:
-      context: .
+    <<: *app
     environment:
       <<: *shared_environment
-    depends_on:
-      - db
     command: ["migrate", "--revert", "--yes"]
     deploy:
       replicas: 0
+
+  # バッチ処理: PageRank と HostRank の計算
+  link-analysis:
+    <<: *app
+    environment:
+      <<: *shared_environment
+    command: ["link-analysis"]
+    deploy:
+      replicas: 0
+
+  # バッチ処理: 検索ログからランキングモデルを学習
+  train-ranker:
+    <<: *app
+    environment:
+      <<: *shared_environment
+    command: ["train-ranker"]
+    deploy:
+      replicas: 0
+
   db:
     image: postgres:16-alpine
     volumes:
@@ -72,3 +127,14 @@ services:
       POSTGRES_DB: vapor_database
     ports:
       - '5432:5432'
+
+  redis:
+    image: redis:7-alpine
+    # フロンティアとブルームフィルターを失わないよう、追記ログで永続化する
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+volumes:
+  db_data:
+  redis_data:
