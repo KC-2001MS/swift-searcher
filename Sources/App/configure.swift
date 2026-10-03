@@ -7,7 +7,6 @@ import Vapor
 public func configure(_ app: Application) async throws {
     // uncomment to serve files from /Public folder
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
-
     app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
         hostname: Environment.get("DATABASE_HOST") ?? "localhost",
         port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
@@ -17,7 +16,11 @@ public func configure(_ app: Application) async throws {
         tls: .prefer(try .init(configuration: .clientDefault)))
     ), as: .psql)
 
-    app.migrations.add(CreateTodo())
+    app.migrations.add(CreateDomain())
+    //クローラーのスケジュールを設定
+//    let crawlerJob = CrawlerJob()
+//    app.queues.schedule(crawlerJob).minutely().at(.init(integerLiteral: 0))
+//    try app.queues.startScheduledJobs()
     // register routes
     try routes(app)
 }

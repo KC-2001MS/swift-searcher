@@ -13,6 +13,10 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent.git", from: "4.9.0"),
         // 🐘 Fluent driver for Postgres.
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.8.0"),
+        
+        .package(url: "https://github.com/vapor/queues-redis-driver.git", from: "1.0.0"),
+        
+        .package(url: "https://github.com/CoreOffice/XMLCoder.git", from: "0.17.0"),
     ],
     targets: [
         .executableTarget(
@@ -21,6 +25,8 @@ let package = Package(
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "Vapor", package: "vapor"),
+                .product(name: "QueuesRedisDriver", package: "queues-redis-driver"),
+                .product(name: "XMLCoder", package: "XMLCoder"),
             ],
             swiftSettings: swiftSettings
         ),
